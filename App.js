@@ -1,10 +1,16 @@
 import WebviewCrypto from 'react-native-webview-crypto';
 import 'react-native-get-random-values';
 import React, {useState, useEffect} from 'react';
-import {StyleSheet, Text, View, Button} from 'react-native';
-import Gun from 'gun';
+import {StyleSheet, Text, View, Button, AsyncStorage} from 'react-native';
+import Gun from 'gun/gun';
 import SEA from 'gun/sea';
+import 'gun/lib/radix.js';
+import 'gun/lib/radisk.js';
+import 'gun/lib/store.js';
+import Store from 'gun/lib/ras.js';
 
+//rad asyncstorage adapter, on Android asyncstorage has 6mb limit by default
+const asyncStore = Store({AsyncStorage});
 export default function App() {
   let [state, setState] = useState({
     decrypted: '',
@@ -45,7 +51,7 @@ export default function App() {
   };
 
   const testUser = async () => {
-    const gun = Gun();
+    const gun = Gun({store: asyncStore});
     const user = gun.user();
     console.log('Gun user object:', {user});
     const username = Math.random() + 'x';
