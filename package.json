@@ -10,9 +10,9 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@gooddollar/react-native-webview-crypto": "0.0.20",
+    "react-native-webview-crypto": "0.0.20",
     "buffer": "^5.4.2",
-    "gun": "git+https://github.com/GoodDollar/gun.git#master",
+    "gun": "git+https://github.com/amark/gun.git#master",
     "react": "16.9.0",
     "react-native": "0.61.5",
     "react-native-get-random-values": "1.1.0",

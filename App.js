@@ -1,4 +1,4 @@
-import WebviewCrypto from '@gooddollar/react-native-webview-crypto';
+import WebviewCrypto from 'react-native-webview-crypto';
 import 'react-native-get-random-values';
 import React, {useState, useEffect} from 'react';
 import {StyleSheet, Text, View, Button} from 'react-native';
