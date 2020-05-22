@@ -19,8 +19,12 @@ export default function App() {
     userCreated: false,
     user: '',
   });
+  
+  
+  
+
   const runTests = async () => {
-    try {
+    /*try {
       console.log('running tests', Gun, crypto);
 
       crypto.subtle
@@ -47,23 +51,46 @@ export default function App() {
       // await testTypes();
     } catch (e) {
       console.log('Test failed', e);
-    }
-  };
-
-  const testUser = async () => {
+    }*/
+    
     const gun = Gun({store: asyncStore});
     const user = gun.user();
-    console.log('Gun user object:', {user});
-    const username = Math.random() + 'x';
-    user.create(username, 'x', r => {
-      console.log('Gun user created result:', r);
-      setState(prev => ({...prev, userCreated: 'true'}));
-      user.auth(username, 'x', async userres => {
-        console.log('Gun user auth result:', userres, gun.user().pair());
-        setState(prev => ({...prev, user: user.is.pub}));
-      });
-    });
+    await createUser(user, 'teste');
+    await testUser(user,'teste', 'x');
+    await testUser(user, 'teste','y');
+    AsyncStorage.clear()
+    console.log('END')
   };
+
+  const createUser = (user, name) => new Promise((resolve, reject) =>  {
+
+    console.log('Gun user object: ', {user});
+   
+    user.create(name, 'y', r => {
+      console.log('Gun user created result:', r);
+      resolve(true)
+      //setState(prev => ({...prev, userCreated: 'true'}));
+    });
+  })
+
+  const testUser = (user, name, pass) => new Promise((resolve, reject) =>  {
+    user.auth(name, pass, async userres => {
+      console.log('Gun user auth result:', userres, user.pair());
+      /*user.is.pub?
+      setState(prev => ({...prev, user: user.is.pub}))
+      :
+      []*/
+      if(userres.err){
+        console.log('[NO LOGIN]')
+        resolve(true)
+      }else{
+        console.log('[LOGIN OK!!!]')
+        resolve(true)
+      }
+      
+    });
+  })
+
   const test = async () => {
     const array = new Uint8Array(10);
     let [random, pair] = await Promise.all([
@@ -257,3 +284,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+
