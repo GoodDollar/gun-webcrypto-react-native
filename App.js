@@ -1,7 +1,14 @@
 import WebviewCrypto from 'react-native-webview-crypto';
 import 'react-native-get-random-values';
 import React, {useState, useEffect} from 'react';
-import {StyleSheet, Text, View, Button, AsyncStorage} from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  Button,
+  AsyncStorage,
+  TextInput,
+} from 'react-native';
 import Gun from 'gun/gun';
 import SEA from 'gun/sea';
 import 'gun/lib/radix.js';
@@ -11,6 +18,18 @@ import Store from 'gun/lib/ras.js';
 
 //rad asyncstorage adapter, on Android asyncstorage has 6mb limit by default
 const asyncStore = Store({AsyncStorage});
+let gun = Gun({
+  peers: ['https://mvp-gun.herokuapp.com/gun'],
+  store: asyncStore,
+});
+const timer = () => {
+  let current = Date.now();
+  return () => {
+    const res = `${(Date.now() - current) / 1000} seconds`;
+    current = Date.now();
+    return res;
+  };
+};
 export default function App() {
   let [state, setState] = useState({
     decrypted: '',
@@ -19,6 +38,21 @@ export default function App() {
     userCreated: false,
     user: '',
   });
+  let [loginStatus, setLoginStatus] = useState({});
+  let [uname, setUserName] = useState();
+  let [pass, setPass] = useState();
+  let [peer, setPeer] = useState('https://mvp-gun.herokuapp.com/gun');
+
+  const clearStorage = () => {
+    AsyncStorage.clear();
+  };
+
+  const restartGun = () => {
+    gun = Gun({
+      peers: [peer],
+      store: asyncStore,
+    });
+  };
   const runTests = async () => {
     try {
       console.log('running tests', Gun, crypto);
@@ -43,60 +77,86 @@ export default function App() {
         });
       await test();
       await test2();
-      await testUser();
-      // await testTypes();
+      await testTypes();
     } catch (e) {
       console.log('Test failed', e);
     }
   };
 
-  const testUser = async () => {
-    const gun = Gun({store: asyncStore});
-    const user = gun.user();
-    console.log('Gun user object:', {user});
-    const username = Math.random() + 'x';
-    user.create(username, 'x', r => {
-      console.log('Gun user created result:', r);
-      setState(prev => ({...prev, userCreated: 'true'}));
-      user.auth(username, 'x', async userres => {
-        console.log('Gun user auth result:', userres, gun.user().pair());
-        setState(prev => ({...prev, user: user.is.pub}));
+  const createUser = () =>
+    new Promise((resolve, reject) => {
+      console.log('start login');
+
+      gun.user().create(uname, pass, r => {
+        console.log('Gun user created result:', r);
+        resolve(true);
+        //setState(prev => ({...prev, userCreated: 'true'}));
       });
     });
+
+  const authUser = () =>
+    new Promise((resolve, reject) => {
+      gun.user().auth(uname, pass, async userres => {
+        console.log('Gun user auth result:', userres, gun.user().pair());
+        if (userres.err) {
+          console.log('[NO LOGIN]');
+          resolve({user: gun.user().pair(), err: userres.err});
+        } else {
+          console.log('[LOGIN OK!!!]');
+          resolve({user: gun.user().pair()});
+        }
+      });
+    });
+
+  const loginUser = async (uname, pass) => {
+    const getElapsed = timer();
+    await createUser(uname, pass);
+    console.log('created', getElapsed());
+    const res = await authUser(uname, pass);
+    console.log('authenticated', getElapsed());
+
+    setLoginStatus(res);
+  };
+
+  const logout = () => {
+    gun.user().leave();
+    setLoginStatus({user: gun.user().pair()});
   };
   const test = async () => {
+    const getElapsed = timer();
     const array = new Uint8Array(10);
     let [random, pair] = await Promise.all([
       crypto.getRandomValues(array),
       SEA.pair(),
     ]);
-
+    console.log({random, pair}, getElapsed());
     setState({random, pair});
     let enc = await SEA.encrypt('hello self', pair);
-    console.log({pair, enc});
+    console.log({pair, enc}, getElapsed());
     let signed = await SEA.sign(enc, pair);
-    console.log({signed});
+    console.log({signed}, getElapsed());
     let verified = await SEA.verify(signed, pair.pub);
-    console.log({verified});
+    console.log({verified}, getElapsed());
     let decrypted = await SEA.decrypt(verified, pair);
-    console.log({decrypted});
+    console.log({decrypted}, getElapsed());
     setState(prev => ({...prev, decrypted}));
   };
 
   const test2 = async () => {
+    const getElapsed = timer();
     const alice = await SEA.pair();
     const bob = await SEA.pair();
-    console.log({alice, bob});
+    console.log({alice, bob}, getElapsed());
     console.log('Doing some work');
     const check = await SEA.work('hello self', alice);
-    console.log('Done work', {check});
+    console.log('Done work', {check}, getElapsed());
     const aes = await SEA.secret(bob.epub, alice);
-    console.log({aes});
+    console.log({aes}, getElapsed());
     const shared = await SEA.encrypt('shared data', aes);
     const aes2 = await SEA.secret(alice.epub, bob);
-    console.log({shared, aes2});
+    console.log({shared, aes2}, getElapsed());
     const sharedDecrypted = await SEA.decrypt(shared, aes2);
-    console.log({sharedDecrypted});
+    console.log({sharedDecrypted}, getElapsed());
     setState(prev => ({...prev, sharedDecrypted}));
   };
 
@@ -236,15 +296,40 @@ export default function App() {
   return (
     <View style={styles.container}>
       <WebviewCrypto />
-      <Text>Open up App.js to start working on your app!</Text>
+      <View style={{flexDirection: 'row'}}>
+        <Text>change peer:</Text>
+        <TextInput
+          onChangeText={setPeer}
+          value={peer}
+          style={{borderWidth: 1, width: '50%'}}
+        />
+      </View>
+      <Button onPress={restartGun} title={'reconnect'} />
+
       <Text>Random: {state.random && state.random.toString()}</Text>
       <Text>SEA Pair: {state.pair && JSON.stringify(state.pair)}</Text>
       <Text>Decrypted: {state.decrypted && state.decrypted}</Text>
       <Text>Shared: {state.sharedDecrypted && state.sharedDecrypted}</Text>
-      <Text>User created: {state.userCreated}</Text>
-      <Text>User loggedin: {state.user}</Text>
 
       <Button onPress={runTests} title={'Run SEA tests'} />
+      <View style={{flexDirection: 'row'}}>
+        <Text>username:</Text>
+        <TextInput
+          onChangeText={setUserName}
+          style={{borderWidth: 1, width: '50%'}}
+        />
+      </View>
+      <View style={{flexDirection: 'row'}}>
+        <Text>password:</Text>
+        <TextInput
+          onChangeText={setPass}
+          style={{borderWidth: 1, width: '50%'}}
+        />
+      </View>
+      <Button onPress={loginUser} title={'login user'} />
+      <Button onPress={logout} title={'logout user'} />
+      <Text>Custom User Status: {JSON.stringify(loginStatus)}</Text>
+      <Button onPress={clearStorage} title={'clear storage'} />
     </View>
   );
 }
